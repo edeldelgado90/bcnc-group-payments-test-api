@@ -24,9 +24,9 @@ public class PriceDTO {
     @NotNull(message = "{price.endDate.notNull}")
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     private final LocalDateTime endDate;
-    @PositiveOrZero(message = "{price.priceList.notBlank}")
+    @PositiveOrZero(message = "{price.priceList.PositiveOrZero}")
     private final Long priceList;
-    @PositiveOrZero(message = "{price.productId.notBlank}")
+    @PositiveOrZero(message = "{price.productId.PositiveOrZero}")
     private final Long productId;
     @PositiveOrZero(message = "{price.priority.PositiveOrZero}")
     private final Integer priority;
