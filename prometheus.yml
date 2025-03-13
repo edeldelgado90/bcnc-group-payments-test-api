@@ -1,0 +1,11 @@
+global:
+  scrape_interval: 10s
+
+scrape_configs:
+  - job_name: 'bcnc-group-payments'
+    static_configs:
+      - targets: ['bcnc-group-payments:8080']
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['prometheus:9090']
