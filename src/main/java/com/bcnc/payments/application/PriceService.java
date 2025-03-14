@@ -1,9 +1,7 @@
 package com.bcnc.payments.application;
 
-import com.bcnc.payments.domain.price.Price;
-import com.bcnc.payments.domain.price.PriceManager;
-import com.bcnc.payments.domain.price.PriceNotFoundException;
-import com.bcnc.payments.domain.price.PriceOverlappingException;
+import com.bcnc.payments.domain.price.*;
+import com.bcnc.payments.port.in.rest.RestPricePort;
 import com.bcnc.payments.port.out.DatabasePricePort;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
@@ -15,15 +13,16 @@ import reactor.core.publisher.Mono;
 import java.time.LocalDateTime;
 
 @Service
-public class PriceService {
+public class PriceService implements RestPricePort {
     private final DatabasePricePort priceRepository;
     private final PriceManager priceManager;
 
-    public PriceService(DatabasePricePort priceRepository) {
+    public PriceService(DatabasePricePort priceRepository, PriceManager priceManager) {
         this.priceRepository = priceRepository;
-        this.priceManager = PriceManager.builder().build();
+        this.priceManager = priceManager;
     }
 
+    @Override
     public Mono<Price> create(Price price) {
         Flux<Price> prices =
                 priceRepository.findAllByProductIdAndBrandId(price.getProductId(), price.getBrandId());
@@ -41,6 +40,7 @@ public class PriceService {
                 .switchIfEmpty(Mono.defer(() -> priceRepository.save(price)));
     }
 
+    @Override
     public Mono<Void> delete(Long id) {
         return priceRepository
                 .findById(id)
@@ -50,18 +50,17 @@ public class PriceService {
                 .flatMap(existingPrice -> priceRepository.delete(id));
     }
 
-    public Mono<Page<Price>> findAllBy(Pageable pageable) {
-        return priceRepository.findAllBy(pageable);
+    @Override
+    public Mono<Page<Price>> findAll(Pageable pageable) {
+        return priceRepository.findAll(pageable);
     }
 
+    @Override
     @Cacheable(value = "currentPrices", key = "#productId + '-' + #brandId + '-' + #date")
-    public Mono<Price> getCurrentPriceByProductAndBrand(
-            Long productId, Long brandId, LocalDateTime date) {
-        Flux<Price> prices = priceRepository.getCurrentPriceByProductAndBrand(productId, brandId, date);
-        return this.priceManager
-                .findHighestPriorityPrice(prices)
+    public Mono<CurrentPrice> getCurrentPrice(Long productId, Long brandId, LocalDateTime date) {
+        return priceRepository.getCurrentPriceByProductAndBrand(productId, brandId, date)
                 .switchIfEmpty(
-                        Mono.error(
-                                new PriceNotFoundException("No price found for the given product and brand.")));
+                        Mono.error(new PriceNotFoundException("No price found for the given product and brand."))
+                );
     }
 }

@@ -1,6 +1,7 @@
 package com.bcnc.payments.application;
 
 import com.bcnc.payments.domain.price.Price;
+import com.bcnc.payments.domain.price.PriceManager;
 import com.bcnc.payments.domain.price.PriceNotFoundException;
 import com.bcnc.payments.domain.price.PriceOverlappingException;
 import com.bcnc.payments.port.out.DatabasePricePort;
@@ -32,6 +33,9 @@ public class PriceServiceTest {
     @Mock
     private DatabasePricePort priceRepository;
 
+    @Mock
+    private PriceManager priceManager;
+
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
@@ -51,9 +55,11 @@ public class PriceServiceTest {
                         .curr("EUR")
                         .build();
 
+        Flux<Price> prices = Flux.empty();
         when(priceRepository.save(price)).thenReturn(Mono.just(price));
         when(priceRepository.findAllByProductIdAndBrandId(price.getProductId(), price.getBrandId()))
-                .thenReturn(Flux.empty());
+                .thenReturn(prices);
+        when(priceManager.doesPriceOverlap(prices, price)).thenReturn(Mono.just(false));
 
         Mono<Price> savedPrice = priceService.create(price);
 
@@ -75,8 +81,10 @@ public class PriceServiceTest {
                         .curr("EUR")
                         .build();
 
+        Flux<Price> prices = Flux.just(price);
         when(priceRepository.findAllByProductIdAndBrandId(price.getProductId(), price.getBrandId()))
-                .thenReturn(Flux.just(price));
+                .thenReturn(prices);
+        when(priceManager.doesPriceOverlap(prices, price)).thenReturn(Mono.just(true));
 
         assertThatExceptionOfType(PriceOverlappingException.class)
                 .isThrownBy(() -> priceService.create(price).block())
@@ -115,26 +123,26 @@ public class PriceServiceTest {
         List<Price> prices = List.of(price);
         Page<Price> pricePage = new PageImpl<>(prices, pageable, prices.size());
 
-        when(priceRepository.findAllBy(pageable)).thenReturn(Mono.just(pricePage));
+        when(priceRepository.findAll(pageable)).thenReturn(Mono.just(pricePage));
 
-        Mono<Page<Price>> resultPage = priceService.findAllBy(pageable);
+        Mono<Page<Price>> resultPage = priceService.findAll(pageable);
 
         assertThat(resultPage.block()).isEqualTo(pricePage);
-        verify(priceRepository).findAllBy(pageable);
+        verify(priceRepository).findAll(pageable);
     }
 
     @Test
-    public void getCurrentPriceByProductAndBrandNotFound() {
+    public void getCurrentPriceNotFound() {
         long productId = 123L;
         long brandId = 1L;
         LocalDateTime date = LocalDateTime.now();
 
         when(priceRepository.getCurrentPriceByProductAndBrand(productId, brandId, date))
-                .thenReturn(Flux.empty());
+                .thenReturn(Mono.empty());
 
         assertThatExceptionOfType(PriceNotFoundException.class)
                 .isThrownBy(
-                        () -> priceService.getCurrentPriceByProductAndBrand(productId, brandId, date).block())
+                        () -> priceService.getCurrentPrice(productId, brandId, date).block())
                 .withMessage("No price found for the given product and brand.");
     }
 }

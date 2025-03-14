@@ -1,12 +1,10 @@
 package com.bcnc.payments.domain.price;
 
-import lombok.Builder;
-import lombok.Getter;
+import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-@Getter
-@Builder
+@Service
 public class PriceManagerService implements PriceManager {
 
     private boolean isOverlapping(Price existingPrice, Price newPrice) {
