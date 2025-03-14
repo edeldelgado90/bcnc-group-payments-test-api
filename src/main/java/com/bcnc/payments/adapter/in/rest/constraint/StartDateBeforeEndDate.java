@@ -1,4 +1,4 @@
-package com.bcnc.payments.application.mapper.constraint;
+package com.bcnc.payments.adapter.in.rest.constraint;
 
 import jakarta.validation.Constraint;
 import jakarta.validation.Payload;
