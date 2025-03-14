@@ -1,4 +1,4 @@
-package com.bcnc.payments.application.mapper.dto;
+package com.bcnc.payments.adapter.in.rest.dto;
 
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validation;

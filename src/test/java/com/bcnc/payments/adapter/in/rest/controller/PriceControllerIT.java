@@ -1,6 +1,6 @@
-package com.bcnc.payments.adapter.in.rest;
+package com.bcnc.payments.adapter.in.rest.controller;
 
-import com.bcnc.payments.application.mapper.dto.PriceDTO;
+import com.bcnc.payments.adapter.in.rest.dto.PriceDTO;
 import com.bcnc.payments.domain.error.ErrorResponse;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

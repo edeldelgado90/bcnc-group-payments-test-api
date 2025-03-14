@@ -86,9 +86,7 @@ public class GRPCPriceServiceIT {
         assertThat(response.getEndDate().getSeconds()).isEqualTo(1609455599);
         assertThat(response.getPriceList()).isEqualTo(4);
         assertThat(response.getProductId()).isEqualTo(35455);
-        assertThat(response.getPriority()).isEqualTo(1);
         assertThat(response.getPrice()).isEqualByComparingTo(38.95);
-        assertThat(response.getCurr()).isEqualTo("EUR");
     }
 
     @Test

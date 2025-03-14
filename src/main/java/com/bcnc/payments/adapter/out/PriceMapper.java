@@ -1,7 +1,8 @@
-package com.bcnc.payments.application.mapper;
+package com.bcnc.payments.adapter.out;
 
+import com.bcnc.payments.adapter.out.model.CurrentPriceEntity;
 import com.bcnc.payments.adapter.out.model.PriceEntity;
-import com.bcnc.payments.application.mapper.dto.PriceDTO;
+import com.bcnc.payments.domain.price.CurrentPrice;
 import com.bcnc.payments.domain.price.Price;
 import org.mapstruct.Mapper;
 
@@ -12,7 +13,5 @@ public interface PriceMapper {
 
     PriceEntity fromPriceToPriceEntity(Price price);
 
-    Price fromPriceDTOToPrice(PriceDTO priceDTO);
-
-    PriceDTO fromPriceToPriceDTO(Price price);
+    CurrentPrice fromCurrentPriceEntityToCurrentPrice(CurrentPriceEntity currentPriceEntity);
 }

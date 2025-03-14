@@ -1,6 +1,6 @@
-package com.bcnc.payments.application.mapper.dto;
+package com.bcnc.payments.adapter.in.rest.dto;
 
-import com.bcnc.payments.application.mapper.constraint.StartDateBeforeEndDate;
+import com.bcnc.payments.adapter.in.rest.constraint.StartDateBeforeEndDate;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
