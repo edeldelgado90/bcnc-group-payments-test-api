@@ -13,5 +13,5 @@ public interface DatabasePort<T> {
 
     Mono<Price> findById(Long id);
 
-    Mono<Page<Price>> findAllBy(Pageable pageable);
+    Mono<Page<Price>> findAll(Pageable pageable);
 }
