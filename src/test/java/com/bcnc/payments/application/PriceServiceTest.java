@@ -1,5 +1,6 @@
 package com.bcnc.payments.application;
 
+import com.bcnc.payments.application.cache.CacheEvictionService;
 import com.bcnc.payments.domain.price.Price;
 import com.bcnc.payments.domain.price.PriceManager;
 import com.bcnc.payments.domain.price.PriceNotFoundException;
@@ -10,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -35,6 +38,15 @@ public class PriceServiceTest {
 
     @Mock
     private PriceManager priceManager;
+
+    @Mock
+    private Cache cache;
+
+    @Mock
+    private CacheManager cacheManager;
+
+    @Mock
+    private CacheEvictionService cacheEvictionService;
 
     @BeforeEach
     public void setUp() {
@@ -98,6 +110,8 @@ public class PriceServiceTest {
 
         when(priceRepository.findById(priceId)).thenReturn(Mono.just(price));
         when(priceRepository.delete(priceId)).thenReturn(Mono.empty());
+        when(cacheEvictionService.evictCurrentPricesCache(price.getProductId(), price.getBrandId(), price.getStartDate()))
+                .thenReturn(Mono.empty());
 
         Mono<Void> result = priceService.delete(priceId);
 
@@ -139,6 +153,7 @@ public class PriceServiceTest {
 
         when(priceRepository.getCurrentPriceByProductAndBrand(productId, brandId, date))
                 .thenReturn(Mono.empty());
+        when(cacheManager.getCache("currentPrices")).thenReturn(cache);
 
         assertThatExceptionOfType(PriceNotFoundException.class)
                 .isThrownBy(
