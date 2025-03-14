@@ -1,12 +1,16 @@
-package com.bcnc.payments.adapter.in.rest;
+package com.bcnc.payments.adapter.in.rest.controller;
 
-import com.bcnc.payments.application.mapper.dto.PriceDTO;
+import com.bcnc.payments.adapter.in.rest.dto.PriceDTO;
+import com.bcnc.payments.application.cache.CacheConstants;
 import com.bcnc.payments.domain.error.ErrorResponse;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
@@ -25,8 +29,26 @@ public class PriceControllerIT {
 
     private final Long productId = 35455L;
     private final Long brandId = 1L;
+
     @Autowired
     private WebTestClient webTestClient;
+
+    @Autowired
+    private CacheManager cacheManager;
+
+    @BeforeEach
+    public void clearCache() {
+        if (cacheManager == null) {
+            return;
+        }
+
+        Cache cache = cacheManager.getCache(CacheConstants.CURRENT_PRICES_CACHE);
+        if (cache == null) {
+            return;
+        }
+
+        cache.clear();
+    }
 
     @Test
     @DisplayName("Test 1: Request at 10:00 on the 14th for product 35455 for brand 1 (ZARA)")

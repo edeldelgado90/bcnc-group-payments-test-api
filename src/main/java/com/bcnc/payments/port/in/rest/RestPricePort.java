@@ -1,14 +1,16 @@
 package com.bcnc.payments.port.in.rest;
 
-import com.bcnc.payments.application.mapper.dto.PriceDTO;
+import com.bcnc.payments.domain.price.CurrentPrice;
+import com.bcnc.payments.domain.price.Price;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Mono;
 
 import java.time.LocalDateTime;
 
-public interface RestPricePort extends RestPort<PriceDTO> {
-    Mono<PriceDTO> getCurrentPrice(Long productId, Long brandId, LocalDateTime date);
+public interface RestPricePort extends RestPort<Price> {
 
-    Mono<Page<PriceDTO>> findAll(Pageable pageable);
+    Mono<CurrentPrice> getCurrentPrice(Long productId, Long brandId, LocalDateTime date);
+
+    Mono<Page<Price>> findAll(Pageable pageable);
 }

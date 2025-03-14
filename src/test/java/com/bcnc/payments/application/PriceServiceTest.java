@@ -1,6 +1,8 @@
 package com.bcnc.payments.application;
 
+import com.bcnc.payments.application.cache.CacheEvictionService;
 import com.bcnc.payments.domain.price.Price;
+import com.bcnc.payments.domain.price.PriceManager;
 import com.bcnc.payments.domain.price.PriceNotFoundException;
 import com.bcnc.payments.domain.price.PriceOverlappingException;
 import com.bcnc.payments.port.out.DatabasePricePort;
@@ -9,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -32,6 +36,18 @@ public class PriceServiceTest {
     @Mock
     private DatabasePricePort priceRepository;
 
+    @Mock
+    private PriceManager priceManager;
+
+    @Mock
+    private Cache cache;
+
+    @Mock
+    private CacheManager cacheManager;
+
+    @Mock
+    private CacheEvictionService cacheEvictionService;
+
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
@@ -51,9 +67,11 @@ public class PriceServiceTest {
                         .curr("EUR")
                         .build();
 
+        Flux<Price> prices = Flux.empty();
         when(priceRepository.save(price)).thenReturn(Mono.just(price));
         when(priceRepository.findAllByProductIdAndBrandId(price.getProductId(), price.getBrandId()))
-                .thenReturn(Flux.empty());
+                .thenReturn(prices);
+        when(priceManager.doesPriceOverlap(prices, price)).thenReturn(Mono.just(false));
 
         Mono<Price> savedPrice = priceService.create(price);
 
@@ -75,8 +93,10 @@ public class PriceServiceTest {
                         .curr("EUR")
                         .build();
 
+        Flux<Price> prices = Flux.just(price);
         when(priceRepository.findAllByProductIdAndBrandId(price.getProductId(), price.getBrandId()))
-                .thenReturn(Flux.just(price));
+                .thenReturn(prices);
+        when(priceManager.doesPriceOverlap(prices, price)).thenReturn(Mono.just(true));
 
         assertThatExceptionOfType(PriceOverlappingException.class)
                 .isThrownBy(() -> priceService.create(price).block())
@@ -90,6 +110,8 @@ public class PriceServiceTest {
 
         when(priceRepository.findById(priceId)).thenReturn(Mono.just(price));
         when(priceRepository.delete(priceId)).thenReturn(Mono.empty());
+        when(cacheEvictionService.evictCurrentPricesCache(price.getProductId(), price.getBrandId(), price.getStartDate()))
+                .thenReturn(Mono.empty());
 
         Mono<Void> result = priceService.delete(priceId);
 
@@ -115,26 +137,27 @@ public class PriceServiceTest {
         List<Price> prices = List.of(price);
         Page<Price> pricePage = new PageImpl<>(prices, pageable, prices.size());
 
-        when(priceRepository.findAllBy(pageable)).thenReturn(Mono.just(pricePage));
+        when(priceRepository.findAll(pageable)).thenReturn(Mono.just(pricePage));
 
-        Mono<Page<Price>> resultPage = priceService.findAllBy(pageable);
+        Mono<Page<Price>> resultPage = priceService.findAll(pageable);
 
         assertThat(resultPage.block()).isEqualTo(pricePage);
-        verify(priceRepository).findAllBy(pageable);
+        verify(priceRepository).findAll(pageable);
     }
 
     @Test
-    public void getCurrentPriceByProductAndBrandNotFound() {
+    public void getCurrentPriceNotFound() {
         long productId = 123L;
         long brandId = 1L;
         LocalDateTime date = LocalDateTime.now();
 
         when(priceRepository.getCurrentPriceByProductAndBrand(productId, brandId, date))
-                .thenReturn(Flux.empty());
+                .thenReturn(Mono.empty());
+        when(cacheManager.getCache("currentPrices")).thenReturn(cache);
 
         assertThatExceptionOfType(PriceNotFoundException.class)
                 .isThrownBy(
-                        () -> priceService.getCurrentPriceByProductAndBrand(productId, brandId, date).block())
+                        () -> priceService.getCurrentPrice(productId, brandId, date).block())
                 .withMessage("No price found for the given product and brand.");
     }
 }
