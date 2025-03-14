@@ -1,5 +1,6 @@
 package com.bcnc.payments.application;
 
+import com.bcnc.payments.application.cache.CacheEvictionService;
 import com.bcnc.payments.domain.price.Price;
 import com.bcnc.payments.domain.price.PriceManager;
 import com.bcnc.payments.domain.price.PriceNotFoundException;
@@ -35,6 +36,9 @@ public class PriceServiceTest {
 
     @Mock
     private PriceManager priceManager;
+
+    @Mock
+    private CacheEvictionService cacheEvictionService;
 
     @BeforeEach
     public void setUp() {
@@ -98,6 +102,8 @@ public class PriceServiceTest {
 
         when(priceRepository.findById(priceId)).thenReturn(Mono.just(price));
         when(priceRepository.delete(priceId)).thenReturn(Mono.empty());
+        when(cacheEvictionService.evictCurrentPricesCache(price.getProductId(), price.getBrandId(), price.getStartDate()))
+                .thenReturn(Mono.empty());
 
         Mono<Void> result = priceService.delete(priceId);
 
