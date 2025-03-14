@@ -11,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.springframework.cache.Cache;
+import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
@@ -36,6 +38,12 @@ public class PriceServiceTest {
 
     @Mock
     private PriceManager priceManager;
+
+    @Mock
+    private Cache cache;
+
+    @Mock
+    private CacheManager cacheManager;
 
     @Mock
     private CacheEvictionService cacheEvictionService;
@@ -145,6 +153,7 @@ public class PriceServiceTest {
 
         when(priceRepository.getCurrentPriceByProductAndBrand(productId, brandId, date))
                 .thenReturn(Mono.empty());
+        when(cacheManager.getCache("currentPrices")).thenReturn(cache);
 
         assertThatExceptionOfType(PriceNotFoundException.class)
                 .isThrownBy(
