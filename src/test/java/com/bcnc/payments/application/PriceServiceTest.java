@@ -1,10 +1,8 @@
 package com.bcnc.payments.application;
 
+import com.bcnc.payments.application.cache.CacheConstants;
 import com.bcnc.payments.application.cache.CacheEvictionService;
-import com.bcnc.payments.domain.price.Price;
-import com.bcnc.payments.domain.price.PriceManager;
-import com.bcnc.payments.domain.price.PriceNotFoundException;
-import com.bcnc.payments.domain.price.PriceOverlappingException;
+import com.bcnc.payments.domain.price.*;
 import com.bcnc.payments.port.out.DatabasePricePort;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -18,33 +16,34 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.TreeMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
 public class PriceServiceTest {
 
+    private final Long productId = 35455L;
+    private final Long brandId = 1L;
+    private final LocalDateTime date = LocalDateTime.of(2023, 10, 1, 12, 0);
     @InjectMocks
     private PriceService priceService;
-
     @Mock
     private DatabasePricePort priceRepository;
-
     @Mock
     private PriceManager priceManager;
-
     @Mock
     private Cache cache;
-
     @Mock
     private CacheManager cacheManager;
-
     @Mock
     private CacheEvictionService cacheEvictionService;
 
@@ -57,11 +56,11 @@ public class PriceServiceTest {
     public void createPriceSuccessfully() {
         Price price =
                 Price.builder()
-                        .brandId(1L)
+                        .brandId(brandId)
                         .startDate(LocalDateTime.now())
                         .endDate(LocalDateTime.now().plusDays(1))
                         .priceList(1L)
-                        .productId(35455L)
+                        .productId(productId)
                         .priority(1)
                         .price(BigDecimal.valueOf(100.00))
                         .curr("EUR")
@@ -83,11 +82,11 @@ public class PriceServiceTest {
     public void createPriceOverlappingMustReturnException() {
         Price price =
                 Price.builder()
-                        .brandId(1L)
+                        .brandId(brandId)
                         .startDate(LocalDateTime.now())
                         .endDate(LocalDateTime.now().plusDays(1))
                         .priceList(1L)
-                        .productId(35455L)
+                        .productId(productId)
                         .priority(1)
                         .price(BigDecimal.valueOf(100.00))
                         .curr("EUR")
@@ -133,7 +132,7 @@ public class PriceServiceTest {
     @Test
     public void findAllByPageable() {
         Pageable pageable = Pageable.ofSize(1).withPage(0);
-        Price price = Price.builder().id(1L).brandId(1L).build();
+        Price price = Price.builder().id(1L).brandId(brandId).build();
         List<Price> prices = List.of(price);
         Page<Price> pricePage = new PageImpl<>(prices, pageable, prices.size());
 
@@ -159,5 +158,125 @@ public class PriceServiceTest {
                 .isThrownBy(
                         () -> priceService.getCurrentPrice(productId, brandId, date).block())
                 .withMessage("No price found for the given product and brand.");
+    }
+
+    @Test
+    public void testGetCurrentPrice_CacheNotFound() {
+        when(cacheManager.getCache(CacheConstants.CURRENT_PRICES_CACHE)).thenReturn(null);
+
+        Mono<CurrentPrice> result = priceService.getCurrentPrice(productId, brandId, date);
+
+        StepVerifier.create(result)
+                .expectErrorMatches(ex -> ex instanceof IllegalStateException && ex.getMessage().equals("Cache not found"))
+                .verify();
+    }
+
+    @Test
+    public void testGetCurrentPrice_CacheEmpty() {
+        when(cacheManager.getCache(CacheConstants.CURRENT_PRICES_CACHE)).thenReturn(cache);
+        when(cache.get(productId + "-" + brandId, TreeMap.class)).thenReturn(null);
+
+        CurrentPrice priceEntity = CurrentPrice.builder()
+                .productId(productId)
+                .brandId(brandId)
+                .priceList(1L)
+                .startDate(date.minusDays(1))
+                .endDate(date.plusDays(1))
+                .price(BigDecimal.valueOf(100.00))
+                .build();
+        when(priceRepository.getCurrentPriceByProductAndBrand(productId, brandId, date)).thenReturn(Mono.just(priceEntity));
+
+        Mono<CurrentPrice> result = priceService.getCurrentPrice(productId, brandId, date);
+
+        StepVerifier.create(result)
+                .expectNextMatches(price ->
+                        price.getProductId().equals(productId) &&
+                                price.getBrandId().equals(brandId) &&
+                                price.getPrice().equals(BigDecimal.valueOf(100.00))
+                )
+                .verifyComplete();
+
+        verify(cache).put(eq(productId + "-" + brandId), any(TreeMap.class));
+    }
+
+    @Test
+    public void testGetCurrentPrice_NoMatchInCache() {
+        TreeMap<LocalDateTime, CurrentPrice> cachedPrices = new TreeMap<>();
+        CurrentPrice currentPriceCached = CurrentPrice.builder()
+                .productId(productId)
+                .brandId(brandId)
+                .priceList(1L)
+                .startDate(date.minusDays(2))
+                .endDate(date.minusDays(1))
+                .price(BigDecimal.valueOf(90.00))
+                .build();
+        cachedPrices.put(date.minusDays(2), currentPriceCached);
+
+        when(cacheManager.getCache(CacheConstants.CURRENT_PRICES_CACHE)).thenReturn(cache);
+        when(cache.get(productId + "-" + brandId, TreeMap.class)).thenReturn(cachedPrices);
+
+        CurrentPrice currentPrice = CurrentPrice.builder()
+                .productId(productId)
+                .brandId(brandId)
+                .priceList(1L)
+                .startDate(date.minusDays(1))
+                .endDate(date.plusDays(1))
+                .price(BigDecimal.valueOf(100.00))
+                .build();
+        when(priceRepository.getCurrentPriceByProductAndBrand(productId, brandId, date)).thenReturn(Mono.just(currentPrice));
+
+        Mono<CurrentPrice> result = priceService.getCurrentPrice(productId, brandId, date);
+
+        StepVerifier.create(result)
+                .expectNextMatches(price ->
+                        price.getProductId().equals(productId) &&
+                                price.getBrandId().equals(brandId) &&
+                                price.getPrice().equals(BigDecimal.valueOf(100.00))
+                )
+                .verifyComplete();
+
+        verify(cache).put(eq(productId + "-" + brandId), any(TreeMap.class));
+    }
+
+    @Test
+    public void testGetCurrentPrice_MatchInCache() {
+        TreeMap<LocalDateTime, CurrentPrice> cachedPrices = new TreeMap<>();
+        CurrentPrice cachedPrice = CurrentPrice.builder()
+                .productId(productId)
+                .brandId(brandId)
+                .priceList(1L)
+                .startDate(date.minusDays(1))
+                .endDate(date.plusDays(1))
+                .price(BigDecimal.valueOf(100.00))
+                .build();
+        cachedPrices.put(date.minusDays(1), cachedPrice);
+
+        when(cacheManager.getCache(CacheConstants.CURRENT_PRICES_CACHE)).thenReturn(cache);
+        when(cache.get(productId + "-" + brandId, TreeMap.class)).thenReturn(cachedPrices);
+
+        Mono<CurrentPrice> result = priceService.getCurrentPrice(productId, brandId, date);
+
+        StepVerifier.create(result)
+                .expectNext(cachedPrice)
+                .verifyComplete();
+
+        verify(priceRepository, never()).getCurrentPriceByProductAndBrand(any(), any(), any());
+    }
+
+    @Test
+    public void testGetCurrentPrice_PriceNotFoundInRepository() {
+        when(cacheManager.getCache(CacheConstants.CURRENT_PRICES_CACHE)).thenReturn(cache);
+        when(cache.get(productId + "-" + brandId, TreeMap.class)).thenReturn(null);
+
+        when(priceRepository.getCurrentPriceByProductAndBrand(productId, brandId, date)).thenReturn(Mono.empty());
+
+        Mono<CurrentPrice> result = priceService.getCurrentPrice(productId, brandId, date);
+
+        StepVerifier.create(result)
+                .expectErrorMatches(ex -> ex instanceof PriceNotFoundException
+                        && ex.getMessage().equals("No price found for the given product and brand."))
+                .verify();
+
+        verify(cache, never()).put(any(), any());
     }
 }
