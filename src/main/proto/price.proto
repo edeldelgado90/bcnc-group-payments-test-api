@@ -18,13 +18,10 @@ message GetCurrentPriceByProductAndBrandRequest {
 }
 
 message PriceResponse {
-  uint64 id = 1;
+  uint64 productId = 6;
   uint64 brandId = 2;
+  uint64 priceList = 5;
   google.protobuf.Timestamp startDate = 3;
   google.protobuf.Timestamp endDate = 4;
-  uint64 priceList = 5;
-  uint64 productId = 6;
-  int32 priority = 7;
   double price = 8;
-  string curr = 9;
 }
